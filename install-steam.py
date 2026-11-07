@@ -22,11 +22,48 @@ BEGIN = '# BEGIN TOTK_LIVE_SPAWNER_INTEGRATION'
 END = '# END TOTK_LIVE_SPAWNER_INTEGRATION'
 
 
+def _integration_block(mod_root: Path) -> str:
+    """Install a flag parser without touching any of Steam's controller setup."""
+    quoted = shlex.quote(str(mod_root))
+    return (
+        f'{BEGIN}\n'
+        '# Explicit opt-in: by default the original Steam shortcut runs the\n'
+        '# unmodified game/input adapter. In Steam Launch Options, specify\n'
+        '# `%command% --live-spawner` to enable the native spawner + J hotkey.\n'
+        'TOTK_LIVE_SPAWNER_ENABLED=0\n'
+        'totk_live_spawner_pass_args=()\n'
+        'for totk_live_spawner_arg in "$@"; do\n'
+        '  case "$totk_live_spawner_arg" in\n'
+        '    --live-spawner) TOTK_LIVE_SPAWNER_ENABLED=1 ;;\n'
+        '    *) totk_live_spawner_pass_args+=("$totk_live_spawner_arg") ;;\n'
+        '  esac\n'
+        'done\n'
+        'set -- "${totk_live_spawner_pass_args[@]}"\n'
+        f'TOTK_LIVE_SPAWNER_ROOT={quoted}\n'
+        'if [[ -f "$TOTK_LIVE_SPAWNER_ROOT/steam-hook.sh" ]]; then\n'
+        '  source "$TOTK_LIVE_SPAWNER_ROOT/steam-hook.sh"\n'
+        'else\n'
+        '  # Deleted or uninstalled mod: preserve the original Steam game.\n'
+        '  totk_live_spawn_setup() { :; }\n'
+        '  totk_live_spawn_cleanup() { :; }\n'
+        'fi\n'
+        f'{END}\n'
+    )
+
+
 def patch_launcher(source: str, mod_root: Path) -> str:
-    if BEGIN in source:
-        if END not in source:
+    block = _integration_block(mod_root)
+    if BEGIN in source or END in source:
+        if source.count(BEGIN) != 1 or source.count(END) != 1:
             raise ValueError('Existing integration marker is incomplete; refusing to modify launcher')
-        return source
+        start = source.index(BEGIN)
+        end = source.index(END, start) + len(END)
+        if 'totk_live_spawn_setup' not in source or 'totk_live_spawn_cleanup' not in source:
+            raise ValueError('Found integration markers but required hooks are missing')
+        # Migrate older always-enabled installations by replacing ONLY the
+        # designated integration block. Preserve original Steam launcher logic.
+        return source[:start] + block.rstrip('\n') + source[end:]
+
     # Reject unexpected launcher versions rather than accidentally breaking
     # the user's existing Steam Controller, DSU, gyro or snapback setup.
     anchors = (
@@ -37,18 +74,7 @@ def patch_launcher(source: str, mod_root: Path) -> str:
     for anchor in anchors:
         if source.count(anchor) != 1:
             raise ValueError(f'Unexpected existing launcher structure: {anchor!r}')
-    quoted = shlex.quote(str(mod_root))
-    injection = (f'{BEGIN}\n'
-                 f'TOTK_LIVE_SPAWNER_ROOT={quoted}\n'
-                 'if [[ -f "$TOTK_LIVE_SPAWNER_ROOT/steam-hook.sh" ]]; then\n'
-                 '  source "$TOTK_LIVE_SPAWNER_ROOT/steam-hook.sh"\n'
-                 'else\n'
-                 '  # The mod was uninstalled; preserve the original Steam launcher.\n'
-                 '  totk_live_spawn_setup() { :; }\n'
-                 '  totk_live_spawn_cleanup() { :; }\n'
-                 'fi\n'
-                 f'{END}\n')
-    source = source.replace("game_pid=''\n", "game_pid=''\n" + injection)
+    source = source.replace("game_pid=''\n", "game_pid=''\n" + block)
     source = source.replace('cleanup() {\n  trap - EXIT INT TERM\n',
                             'cleanup() {\n  trap - EXIT INT TERM\n'
                             '  totk_live_spawn_cleanup\n')
@@ -92,7 +118,8 @@ def main() -> None:
         os.replace(candidate,launcher)
         print(f'Integrated TotK spawner into Steam launcher: {launcher}')
         print(f'Pre-install launcher backup: {rollback}')
-        print('Use Steam > TotK Recomp (Experimental) > Play; do not start a separate mod launcher.')
+        print('Default Steam Play: native spawner OFF.')
+        print('Steam Launch Options `%command% --live-spawner`: native spawner ON.')
     finally:
         candidate.unlink(missing_ok=True)
 

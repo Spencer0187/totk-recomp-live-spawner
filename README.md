@@ -105,9 +105,19 @@ python3 install-steam.py --dry-run
 python3 install-steam.py
 ```
 
-The installer validates the existing launcher and adds only a small hook. It preserves the same Steam shortcut, DSU gyro bridge, Steam Controller input adapter, and game process hierarchy. **After installing, launch only through Steam's Play button.** Press `J` once the game is focused to spawn your four components.
+The installer validates the existing launcher and adds only a small, **opt-in** command-line hook. It preserves the same Steam shortcut, DSU gyro bridge, Steam Controller input adapter, and game process hierarchy. It also migrates older installations where the live-spawner hook was always on.
 
-The launcher automatically stops the hotkey watcher and input bridge when the game exits. If you delete the mod folder, the integration falls back to launching the unmodified game. For a manual rollback, close the game and restore the original from `~/Applications/TotK-Recomp/launch.sh.before-live-spawner` (created by the installer before modifying the launcher). You can temporarily disable the live spawner using `TOTK_LIVE_SPAWN_DISABLE=1` in the launcher environment without removing the integration.
+**Default: mod disabled.** Steam's **Play** button starts the original game and existing controller adapter. The native mod and `J` watcher do not start.
+
+**To enable it:** Open Steam → Library → right-click **TotK Recomp (Experimental)** → **Properties** → **Launch Options**, and enter:
+
+```text
+%command% --live-spawner
+```
+
+Now pressing **Play in Steam** starts the modded game under the **same Steam-managed process**; `J` spawns your four parts once a save is loaded. Removing `--live-spawner` (or clearing Launch Options) disables the mod again. The launcher strips the flag before passing any remaining command-line arguments to TotK, so ordinary game flags are still supported. The Steam shortcut file is **not** rewritten by the installer.
+
+The launcher automatically stops the hotkey watcher and input bridge when the game exits. If you delete the mod folder, the integration falls back to launching the unmodified game. For a manual rollback, close the game and restore the original from `~/Applications/TotK-Recomp/launch.sh.before-live-spawner` (created by the installer before modifying the launcher). For a diagnostic override, `TOTK_LIVE_SPAWN_DISABLE=1` also suppresses the mod even if `--live-spawner` is present.
 
 The wrapper `./launch.sh` remains available for **standalone testing without Steam Input**. With Steam Input, use your existing non-Steam game's Play button instead.
 

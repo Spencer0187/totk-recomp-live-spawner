@@ -5,6 +5,10 @@
 totk_live_spawn_hotkey_pid=''
 
 totk_live_spawn_setup() {
+    # Only the Steam launcher argument --live-spawner enables the mod.
+    if [[ "${TOTK_LIVE_SPAWNER_ENABLED:-0}" != '1' ]]; then
+        return 0
+    fi
     if [[ "${TOTK_LIVE_SPAWN_DISABLE:-0}" == '1' ]]; then
         echo '[totk-live-spawn] disabled via TOTK_LIVE_SPAWN_DISABLE=1' >&2
         return 0
