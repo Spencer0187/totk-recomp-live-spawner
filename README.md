@@ -93,3 +93,24 @@ The project was built by reverse-engineering behavior in the installed TotK 1.4.
 The native function offsets, platform assumptions, initialization flags, and object lifetimes all warrant further investigation. Spawning items does not automatically make them buildable, fused, glued, saved, or permanent, and it does not reproduce an entire Autobuild blueprint.
 
 This is an unofficial community experiment, not affiliated with Nintendo or the TotK Recomp team. The MIT license covers this repository's original source code, not Nintendo game assets depicted in screenshots.
+
+## Steam Input integration (recommended if you added Recomp as a non-Steam game)
+
+**Do not launch the standalone mod wrapper and then click Play in Steam.** That starts a second game, which can break Steam Input association and lead to duplicate DSU bridges.
+
+If your non-Steam shortcut already launches `~/Applications/TotK-Recomp/launch.sh`, use the included one-time integration instead:
+
+```bash
+python3 install-steam.py --dry-run
+python3 install-steam.py
+```
+
+The installer validates the existing launcher and adds only a small hook. It preserves the same Steam shortcut, DSU gyro bridge, Steam Controller input adapter, and game process hierarchy. **After installing, launch only through Steam's Play button.** Press `J` once the game is focused to spawn your four components.
+
+The launcher automatically stops the hotkey watcher and input bridge when the game exits. If you delete the mod folder, the integration falls back to launching the unmodified game. For a manual rollback, close the game and restore the original from `~/Applications/TotK-Recomp/launch.sh.before-live-spawner` (created by the installer before modifying the launcher). You can temporarily disable the live spawner using `TOTK_LIVE_SPAWN_DISABLE=1` in the launcher environment without removing the integration.
+
+The wrapper `./launch.sh` remains available for **standalone testing without Steam Input**. With Steam Input, use your existing non-Steam game's Play button instead.
+
+### About flags on the spring
+
+The live-spawn flag `0x05` used by the native factory is **not established to be equivalent** to the `.cai` Autobuild per-actor `flag=1` field. The `.cai` field exists at actor offset `+148`; parsers preserve it, but no confirmed mapping to the live factory has been identified. This mod does not claim to set the spring's `.cai` flag-1 state. The `0x05` bitmask is applied to all currently spawned actors because it is required for the tested live creation behavior.
