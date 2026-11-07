@@ -1,0 +1,15 @@
+# Build artifacts and personal runtime files
+*.so
+*.o
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
+*.sav
+*.cai
+core
+core.*
+.vscode/
+.idea/
+.env
+.venv/
